@@ -1,0 +1,73 @@
+# Reference: <https://postmarketos.org/vendorkernel>
+# Kernel config based on: arch/arm64/configs/(CHANGEME!)
+
+pkgname=linux-lenovo-manning
+pkgver=3.18.60
+pkgrel=10
+pkgdesc="Lenovo K8 Note kernel fork"
+arch="aarch64"
+_carch="arm64"
+_flavor="lenovo-manning"
+url="https://kernel.org"
+license="GPL-2.0-only"
+options="!strip !check !tracedeps pmb:cross-native"
+makedepends="
+	bash
+	bc
+	bison
+	devicepkg-dev
+	findutils
+	flex
+	openssl-dev
+	perl
+	ncurses-dev
+	gcc6
+"
+
+# Compiler: GCC 6 (doesn't boot when compiled with newer versions)
+if [ "${CC:0:5}" != "gcc6-" ]; then
+	CC="gcc6-$CC"
+	HOSTCC="gcc6-gcc"
+	CROSS_COMPILE="gcc6-$CROSS_COMPILE"
+fi
+
+# Source
+_repository="android_kernel_lenovo_manning"
+_commit="0f5cd32b7a08e01e6b4df15c56718d5f80a14657"
+_config="config-$_flavor.$arch"
+source="
+	$pkgname-$_commit.tar.gz::https://github.com/shunceyb/$_repository/archive/$_commit.tar.gz
+	$_config
+	include-cust-dtsi.patch
+	proc.S.patch
+	gcc10-extern_YYLOC_global_declaration.patch
+	fix-check-lxdialog.patch
+"
+builddir="$srcdir/$_repository-$_commit"
+_outdir="out"
+
+prepare() {
+	default_prepare
+	. downstreamkernel_prepare
+}
+
+build() {
+	
+	unset LDFLAGS
+	make O="$_outdir" ARCH="$_carch" CC="${CC:-gcc}" \
+		KBUILD_BUILD_VERSION="$((pkgrel + 1 ))-postmarketOS"
+}
+
+package() {
+	downstreamkernel_package "$builddir" "$pkgdir" "$_carch" \
+		"$_flavor" "$_outdir"
+}
+
+sha512sums="
+d390bd5f1590ff9435cef7d8fb583ac12de26f6fbd7500d5bb3ff4231a6649c77177a89c6ff53129abd9fdedc3c1e413a760204e1b16c57db58e61434cdf6138  linux-lenovo-manning-0f5cd32b7a08e01e6b4df15c56718d5f80a14657.tar.gz
+443509eb42666ac9c7aa31f40c456d67b6ab1b4aa088ce064a9cd636b445cc52b347121acadfc6f47fd68095885e53a9aaa22a018b3dbea2481240784d8b9569  config-lenovo-manning.aarch64
+af72479eb5b305c9074fed54cf7f13f5b1b0444a1bc94b0d470b54a08d4c63e5e2ba20a65f56e1c08706367e4af44a26371bebe815627e2796cfeb7636eac1fc  include-cust-dtsi.patch
+7bf7bee38d93c242c54050c1eb635af24df8dd267dac722d63e6a816d076fc361fde630b1e665606ffd949be30d039fad2cf7da7b88fb1431920837be0e495de  proc.S.patch
+2b48f1bf0e3f70703d2cdafc47d5e615cc7c56c70bec56b2e3297d3fa4a7a1321d649a8679614553dde8fe52ff1051dae38d5990e3744c9ca986d92187dcdbeb  gcc10-extern_YYLOC_global_declaration.patch
+182be3c596b9cc267ac108d7cf03fc8c328ccc6b36770800e4dcedea8d1bb65e3f5eacf590c2948f58b1418cc60a1670ba77dde8c259e428d158c31b6e1dbaf5  fix-check-lxdialog.patch
+"
